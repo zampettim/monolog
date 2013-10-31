@@ -19,7 +19,7 @@ use Psr\Log\InvalidArgumentException;
  *
  * @author Marc Zampetti <marc@zampettis.com>
  */
-class LoggerFactory 
+class LoggerFactory extends Base
 {
     /**
      * Attempts to load the configuration for the handlers and processors
@@ -86,15 +86,45 @@ class LoggerFactory
         throw new InvalidArgumentException("Unable to load configuration");
       }
 
-      $config = json_decode($data);
+      $config = json_decode($data, true);
 
       // Process the configuration info if we have it.
-      if ( isset($config) )
+      if ( ! isset($config) )
       {
-        print_r($config);
-        foreach($config->handlers as $key => $value)
+        $msg = 'Unable to parse configuration. JSON Error: ';
+
+        switch (json_last_error()) 
         {
+          case JSON_ERROR_NONE:
+            $msg .= 'No errors';
+            break;
+
+          case JSON_ERROR_DEPTH:
+            $msg .= 'Max depth reached';
+            break;
+
+          case JSON_ERROR_STATE_MISMATCH:
+            $msg .= 'Underflow or the modes mismatch';
+            break;
+
+          case JSON_ERROR_CTRL_CHAR:
+            $msg .= 'Unexpected control character found';
+            break;
+
+          case JSON_ERROR_SYNTAX:
+            $msg .= 'Syntax error, malformed JSON';
+            break;
+
+          case JSON_ERROR_UTF8:
+            $msg .= 'Malformed UTF-8 characters, possibly incorrectly encoded';
+            break;
+
+          default:
+            $msg .= 'Unknown error';
+            break;
         }
+
+        throw new InvalidArgumentException($msg);
       }
 
       // Return the configuration information we found.
@@ -115,7 +145,58 @@ class LoggerFactory
     {
       $logger = new Logger($name);
 
+      if ( isset($config) )
+      {
+        foreach($config['handlers'] as $handler)
+        {
+          $class = new \ReflectionClass("\\Monolog\\Handler\\" . $handler['class']);
+
+          $isntance = null;
+
+          if ( isset($handler['parameters']) )
+          {
+            // We need to convert the level parameter to its integer value.
+            $level = static::convertLevel($handler['parameters']['level']);
+            $handler['parameters']['level'] = $level;
+
+            // Instantiate the handler and add it to the logger.
+            $instance = $class->newInstanceArgs($handler['parameters']);
+          }
+          else {
+            $instance = $class->newInstance();
+          }
+
+          if ( isset($instance) )
+            $logger->pushHandler($instance);
+        }
+      }
+
       return $logger;
+    }
+
+    /**
+     * Converts the level from the string name to integer value.
+     *
+     * @param mixed $level - The level. Can be the integer or string value.
+     *
+     * @return the integer value that corresponds to provided input. 
+     * Returns Logger::DEBUG when the provided value cannot be 
+     * mapped otherwise.
+     */
+    private static function convertLevel($level)
+    {
+      // If the $level is an int, an done of the defined levels.
+      if ( is_int($level) and array_key_exists($level, parent::$levels) )
+      {
+        return $level;
+      }
+
+      $result = array_search($level, parent::$levels);
+
+      if ( isset($result) )
+        return $result;
+
+      return(Logger::DEBUG);
     }
 
     /**

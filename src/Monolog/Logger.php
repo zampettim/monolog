@@ -24,7 +24,7 @@ use Psr\Log\InvalidArgumentException;
  *
  * @author Jordi Boggiano <j.boggiano@seld.be>
  */
-class Logger implements LoggerInterface
+class Logger extends Base implements LoggerInterface
 {
     /**
      * Detailed debug information
@@ -75,32 +75,6 @@ class Logger implements LoggerInterface
      * Urgent alert.
      */
     const EMERGENCY = 600;
-
-    /**
-     * Monolog API version
-     *
-     * This is only bumped when API breaks are done and should
-     * follow the major version of the library
-     *
-     * @var int
-     */
-    const API = 1;
-
-    /**
-     * Logging levels from syslog protocol defined in RFC 5424
-     *
-     * @var array $levels Logging levels
-     */
-    protected static $levels = array(
-        100 => 'DEBUG',
-        200 => 'INFO',
-        250 => 'NOTICE',
-        300 => 'WARNING',
-        400 => 'ERROR',
-        500 => 'CRITICAL',
-        550 => 'ALERT',
-        600 => 'EMERGENCY',
-    );
 
     /**
      * @var DateTimeZone
